@@ -1,0 +1,18 @@
+{
+  "extraPrompt": "Be playful but brief.",
+  "speechRate": 1.0,
+  "pitch": 1.1,
+  "lang": "en-US",
+  "linkSkills": [
+    {
+      "name": "youtube_search",
+      "description": "Search YouTube for videos or music.",
+      "url": "https://www.youtube.com/results?search_query={q}"
+    },
+    {
+      "name": "maps_search",
+      "description": "Find a place or directions in Google Maps.",
+      "url": "https://www.google.com/maps/search/{q}"
+    }
+  ]
+}

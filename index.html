@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07030f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Luna</title>
+<style>
+  :root {
+    --void: #07030f; --deep: #140a2b; --uv: #7b2cff;
+    --mag: #ff2bd6; --rose: #ff6fb5; --moon: #f6eaff; --alert: #ff3b6b;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: var(--void); color: var(--moon);
+    font-family: "Sora", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body {
+    display: flex; flex-direction: column; height: 100dvh; overflow: hidden;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+    background: radial-gradient(ellipse at 50% 45%, #2a0b4d 0%, var(--void) 70%);
+  }
+  header { display: flex; align-items: center; padding: 10px 14px 0 24px; }
+  header h1 { margin: 0; font-size: 22px; font-weight: 300; letter-spacing: 6px; }
+  header .spacer { flex: 1; }
+  .icon-btn { background: none; border: 0; color: var(--rose); width: 48px; height: 48px;
+    border-radius: 50%; cursor: pointer; display: grid; place-items: center; }
+  .icon-btn:focus-visible, .btn:focus-visible, .chip:focus-visible, #stage:focus-visible
+    { outline: 2px solid var(--rose); outline-offset: 2px; }
+  #stage { flex: 1; min-height: 0; position: relative; cursor: pointer; border: 0;
+    background: none; padding: 0; width: 100%; }
+  #orb { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #text { min-height: 112px; padding: 0 28px; text-align: center; display: flex;
+    align-items: center; justify-content: center; }
+  #text p { margin: 0; font-weight: 300; line-height: 1.45; max-width: 520px;
+    display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
+  #text p.heard { font-size: 17px; color: rgba(246,234,255,.55); }
+  #text p.reply { font-size: 20px; color: var(--moon); }
+  #chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    padding: 10px 20px 0; min-height: 44px; }
+  .chip { font: inherit; font-size: 12px; color: var(--moon); text-decoration: none;
+    padding: 8px 14px; border-radius: 999px; background: rgba(123,44,255,.25);
+    border: 1px solid rgba(255,43,214,.5); }
+  a.chip { background: rgba(255,43,214,.22); }
+  #hint { text-align: center; color: rgba(246,234,255,.4); font-size: 14px; padding: 14px 0 22px; }
+  #sheet { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: none;
+    align-items: flex-end; z-index: 5; }
+  #sheet.open { display: flex; }
+  .panel { width: 100%; background: var(--deep); border-radius: 28px 28px 0 0;
+    padding: 24px 24px calc(24px + env(safe-area-inset-bottom)); max-height: 90dvh; overflow: auto; }
+  .panel h2 { margin: 0 0 6px; font-size: 18px; font-weight: 600; }
+  .panel p { margin: 0 0 12px; color: rgba(246,234,255,.6); font-size: 14px; line-height: 1.4; }
+  .panel input { width: 100%; font: inherit; color: var(--moon); background: rgba(0,0,0,.35);
+    border: 1px solid rgba(246,234,255,.25); border-radius: 12px; padding: 14px; margin-bottom: 18px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .btn { font: inherit; font-size: 15px; border-radius: 14px; padding: 14px 18px; cursor: pointer;
+    flex: 1; min-width: 140px; color: var(--moon); background: none;
+    border: 1px solid rgba(246,234,255,.3); }
+  .btn.primary { background: var(--mag); border-color: var(--mag); color: #1a0020; font-weight: 600; }
+  #status { color: var(--rose); font-size: 14px; margin-top: 14px; min-height: 18px; }
+  .ver { color: rgba(246,234,255,.35); font-size: 12px; margin-top: 16px; }
+  @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>LUNA</h1><span class="spacer"></span>
+  <button class="icon-btn" id="openSettings" aria-label="Settings">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
+  </button>
+</header>
+
+<button id="stage" aria-label="Talk to Luna"><canvas id="orb" aria-hidden="true"></canvas></button>
+
+<div id="text" aria-live="polite"><p class="heard" id="line"></p></div>
+<div id="chips"></div>
+<div id="hint">Tap the orb to talk</div>
+
+<div id="sheet" role="dialog" aria-modal="true" aria-label="Settings">
+  <div class="panel">
+    <h2>Gemini API key</h2>
+    <p>Free key from aistudio.google.com. It is stored only on this phone.</p>
+    <input id="key" type="password" autocomplete="off" placeholder="Paste your key">
+    <div class="row">
+      <button class="btn primary" id="save">Save</button>
+      <button class="btn" id="refresh">Update Luna</button>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" id="close">Close</button>
+    </div>
+    <div id="status"></div>
+    <div class="ver" id="ver"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+const VERSION = '1.0.0';
+const MODEL = 'gemini-2.5-flash'; // change here if Google renames the model
+const $ = id => document.getElementById(id);
+
+/* ---------------- State ---------------- */
+let state = 'idle', level = 0, amp = 0.05;
+let cfg = { extraPrompt: '', speechRate: 1.0, pitch: 1.1, lang: '', linkSkills: [] };
+let history = [], busy = false, rec = null, audioCtx = null;
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const HINTS = { idle: 'Tap the orb to talk', listening: 'Listening', thinking: 'Thinking',
+                speaking: 'Tap to stop', error: 'Something went wrong' };
+function setState(s) { state = s; $('hint').textContent = HINTS[s]; if (s !== 'listening') level = 0; }
+function showHeard(t) { const p = $('line'); p.className = 'heard'; p.textContent = t; }
+function showReply(t) { const p = $('line'); p.className = 'reply'; p.textContent = t; }
+function addChip(label, url) {
+  const el = document.createElement(url ? 'a' : 'span');
+  el.className = 'chip'; el.textContent = label;
+  if (url) { el.href = url; el.target = '_blank'; el.rel = 'noopener'; }
+  $('chips').appendChild(el);
+}
+function fail(msg) {
+  showReply(msg); setState('error');
+  setTimeout(() => { if (state === 'error') setState('idle'); }, 3500);
+}
+
+/* ---------------- Skills (add features here) ---------------- */
+const S = { type: 'STRING' }, I = { type: 'INTEGER' };
+const enc = encodeURIComponent;
+
+function openLink(url, label) {
+  addChip(label + ' (tap to open)', url);
+  try { window.open(url, '_blank'); } catch (e) {}
+  return 'Link ready for ' + label + '. If nothing opened, the user can tap the chip.';
+}
+function beep() {
+  if (!audioCtx) return;
+  for (let i = 0; i < 3; i++) {
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.frequency.value = 880; o.connect(g); g.connect(audioCtx.destination);
+    const t = audioCtx.currentTime + i * 0.35;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.3, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.25); o.start(t); o.stop(t + 0.3);
+  }
+}
+let torch = null;
+async function flashlight(on) {
+  try {
+    if (!on) { torch && torch.getTracks().forEach(t => t.stop()); torch = null; return 'Flashlight off'; }
+    torch = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    const tr = torch.getVideoTracks()[0];
+    if (!(tr.getCapabilities && tr.getCapabilities().torch)) {
+      torch.getTracks().forEach(t => t.stop()); torch = null;
+      return 'This phone or browser does not allow flashlight control from a web app.';
+    }
+    await tr.applyConstraints({ advanced: [{ torch: true }] });
+    return 'Flashlight on';
+  } catch (e) { return 'Could not use the flashlight: ' + (e.message || e.name); }
+}
+
+const builtin = [
+  { name: 'web_search', description: 'Search the web.', params: { query: S }, required: ['query'],
+    run: a => openLink('https://www.google.com/search?q=' + enc(a.query), 'Search: ' + a.query) },
+  { name: 'dial_number', description: 'Open the phone dialer with a number. The user taps call.',
+    params: { number: S }, required: ['number'],
+    run: a => { addChip('Call ' + a.number, 'tel:' + a.number); location.href = 'tel:' + a.number; return 'Dialer ready, user taps call.'; } },
+  { name: 'compose_sms', description: 'Draft a text message. The user taps send.',
+    params: { number: S, message: S }, required: ['number', 'message'],
+    run: a => { const u = 'sms:' + a.number + '?body=' + enc(a.message); addChip('Text ' + a.number, u); location.href = u; return 'Message drafted, user taps send.'; } },
+  { name: 'whatsapp_message', description: 'Open a WhatsApp chat with a number (country code, digits only) and optional text.',
+    params: { number: S, message: S }, required: ['number'],
+    run: a => openLink('https://wa.me/' + a.number.replace(/\D/g, '') + (a.message ? '?text=' + enc(a.message) : ''), 'WhatsApp ' + a.number) },
+  { name: 'compose_email', description: 'Draft an email.', params: { to: S, subject: S, body: S }, required: ['to'],
+    run: a => { const u = 'mailto:' + a.to + '?subject=' + enc(a.subject || '') + '&body=' + enc(a.body || ''); addChip('Email ' + a.to, u); location.href = u; return 'Email drafted.'; } },
+  { name: 'set_timer', description: 'Start a countdown timer. Only works while Luna stays open.',
+    params: { seconds: I, label: S }, required: ['seconds'],
+    run: a => {
+      const sec = Math.max(1, Math.round(a.seconds)), label = a.label || 'Timer';
+      setTimeout(() => { beep(); navigator.vibrate && navigator.vibrate([300, 150, 300]);
+        showReply(label + ' is done'); speak(label + ' is done.'); }, sec * 1000);
+      const m = Math.floor(sec / 60), s = sec % 60;
+      const txt = (m ? m + ' min ' : '') + (s ? s + ' sec' : '');
+      addChip('Timer ' + txt.trim(), null);
+      return 'Timer set for ' + txt.trim() + '. Luna must stay open to ring.';
+    } },
+  { name: 'flashlight', description: 'Turn the flashlight on or off.', params: { on: { type: 'BOOLEAN' } }, required: ['on'],
+    run: a => flashlight(!!a.on) },
+  { name: 'vibrate', description: 'Vibrate the phone briefly.', params: {}, required: [],
+    run: () => { navigator.vibrate && navigator.vibrate(400); return 'Vibrated.'; } },
+  { name: 'get_battery', description: 'Get the battery level.', params: {}, required: [],
+    run: async () => { try { const b = await navigator.getBattery(); return 'Battery at ' + Math.round(b.level * 100) + ' percent' + (b.charging ? ', charging' : ''); } catch (e) { return 'Battery info is not available in this browser.'; } } },
+  { name: 'get_time', description: 'Get the current local date and time.', params: {}, required: [],
+    run: () => new Date().toLocaleString([], { dateStyle: 'full', timeStyle: 'short' }) },
+];
+let skills = {};
+function loadSkills() {
+  skills = {};
+  builtin.forEach(s => skills[s.name] = s);
+  (cfg.linkSkills || []).forEach(l => {
+    skills[l.name] = { name: l.name, description: l.description, params: { q: S }, required: ['q'],
+      run: a => openLink(l.url.replace('{q}', enc(a.q || '')), l.name.replace(/_/g, ' ') + ': ' + a.q) };
+  });
+}
+const declarations = () => Object.values(skills).map(s => ({
+  name: s.name, description: s.description,
+  ...(Object.keys(s.params).length ? { parameters: { type: 'OBJECT', properties: s.params, required: s.required } } : {}),
+}));
+
+/* ---------------- Gemini ---------------- */
+const BASE_PROMPT = 'You are Luna, a fast, warm voice assistant on a phone. Replies are spoken aloud: ' +
+  'one or two short sentences, no markdown, no lists. Use the tools when asked to act, then confirm briefly. ' +
+  'If a tool says it is not possible, say so plainly. You run in a web app, so you cannot change system volume, ' +
+  'brightness, alarms or open other apps directly: offer a search link or the closest alternative.';
+
+async function ask(text) {
+  const key = localStorage.getItem('luna_key');
+  if (!key) throw new Error('Add your Gemini API key in settings first.');
+  history.push({ role: 'user', parts: [{ text }] });
+  for (let i = 0; i < 5; i++) {
+    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + MODEL + ':generateContent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: (BASE_PROMPT + ' ' + (cfg.extraPrompt || '')).trim() }] },
+        contents: history,
+        tools: [{ functionDeclarations: declarations() }],
+      }),
+    });
+    if (!res.ok) throw new Error(res.status === 429 ? 'Free limit reached. Try again in a minute.' :
+      'Gemini error ' + res.status + '. Check your API key.');
+    const content = (await res.json()).candidates?.[0]?.content;
+    if (!content) throw new Error('No response from Gemini.');
+    const parts = content.parts || [];
+    history.push({ role: 'model', parts });
+    const calls = parts.filter(p => p.functionCall);
+    if (!calls.length) {
+      const out = parts.map(p => p.text || '').join(' ').trim();
+      trimHistory();
+      return out || 'Done.';
+    }
+    const responses = [];
+    for (const c of calls) {
+      const sk = skills[c.functionCall.name];
+      let result;
+      try { result = sk ? await sk.run(c.functionCall.args || {}) : 'Unknown action.'; }
+      catch (e) { result = 'Failed: ' + e.message; }
+      responses.push({ functionResponse: { name: c.functionCall.name, response: { result: String(result) } } });
+    }
+    history.push({ role: 'user', parts: responses });
+  }
+  return 'That took too many steps.';
+}
+function trimHistory() {
+  if (history.length <= 16) return;
+  history = history.slice(-12);
+  while (history.length && !(history[0].role === 'user' && history[0].parts[0].text)) history.shift();
+}
+
+/* ---------------- Voice ---------------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+function speak(text) {
+  return new Promise(resolve => {
+    if (!('speechSynthesis' in window)) return resolve();
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = cfg.speechRate || 1; u.pitch = cfg.pitch || 1;
+    if (cfg.lang) u.lang = cfg.lang;
+    u.onend = u.onerror = () => resolve();
+    speechSynthesis.speak(u);
+  });
+}
+function listen() {
+  if (busy) return;
+  if (!SR) return fail('This browser has no speech recognition. Open Luna in Chrome.');
+  speechSynthesis.cancel();
+  $('chips').innerHTML = ''; showHeard('');
+  let finalText = '';
+  rec = new SR();
+  rec.lang = cfg.lang || navigator.language || 'en-US';
+  rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 1;
+  rec.onstart = () => setState('listening');
+  rec.onresult = e => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const r = e.results[i];
+      if (r.isFinal) finalText += r[0].transcript; else interim += r[0].transcript;
+    }
+    showHeard(finalText + interim); level = 0.75;
+  };
+  rec.onerror = e => {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') fail('Allow the microphone for Luna, then tap again.');
+    else if (e.error !== 'no-speech' && e.error !== 'aborted') fail('I could not hear that (' + e.error + ').');
+  };
+  rec.onend = () => {
+    if (state !== 'listening') return;
+    if (finalText.trim()) handle(finalText.trim()); else setState('idle');
+  };
+  try { rec.start(); } catch (e) { fail('Could not start the microphone.'); }
+}
+async function handle(text) {
+  busy = true; setState('thinking');
+  try {
+    const out = await ask(text);
+    showReply(out); setState('speaking');
+    await speak(out);
+    if (state === 'speaking') setState('idle');
+  } catch (e) { fail(e.message || 'Something went wrong.'); }
+  busy = false;
+}
+$('stage').addEventListener('click', () => {
+  if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  if (state === 'listening') { rec && rec.stop(); }
+  else if (state === 'speaking') { speechSynthesis.cancel(); setState('idle'); }
+  else if (state === 'idle' || state === 'error') listen();
+});
+
+/* ---------------- Settings ---------------- */
+const sheet = $('sheet');
+$('openSettings').onclick = () => { $('key').value = localStorage.getItem('luna_key') || ''; $('status').textContent = ''; sheet.classList.add('open'); };
+$('close').onclick = () => sheet.classList.remove('open');
+sheet.addEventListener('click', e => { if (e.target === sheet) sheet.classList.remove('open'); });
+$('save').onclick = () => { localStorage.setItem('luna_key', $('key').value.trim()); $('status').textContent = 'Saved.'; setTimeout(() => sheet.classList.remove('open'), 600); };
+$('refresh').onclick = async () => {
+  $('status').textContent = 'Updating...';
+  try {
+    const regs = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(regs.map(r => r.unregister()));
+    const keys = await caches.keys(); await Promise.all(keys.map(k => caches.delete(k)));
+  } catch (e) {}
+  location.reload();
+};
+$('ver').textContent = 'Luna web ' + VERSION + ' (updates itself when you open it online)';
+
+/* ---------------- Orb ---------------- */
+const cv = $('orb'), g = cv.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+function resize() {
+  DPR = Math.min(devicePixelRatio || 1, 2);
+  const r = cv.getBoundingClientRect(); W = r.width; H = r.height;
+  cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+}
+new ResizeObserver(resize).observe(cv); resize();
+
+const PAL = { idle: ['#7b2cff', '#ff2bd6'], listening: ['#ff2bd6', '#ff6fb5'], thinking: ['#7b2cff', '#ff2bd6'],
+              speaking: ['#ff2bd6', '#ff6fb5'], error: ['#7b2cff', '#ff3b6b'] };
+function hexA(h, a) { const n = parseInt(h.slice(1), 16); return 'rgba(' + (n >> 16) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')'; }
+
+function target(t) {
+  switch (state) {
+    case 'idle': return 0.06 + 0.02 * Math.sin(t * 1.2);
+    case 'listening': return 0.14 + level * 0.55;
+    case 'thinking': return 0.22 + 0.05 * Math.sin(t * 4);
+    case 'speaking': return 0.30 + 0.12 * Math.sin(t * 7) * Math.abs(Math.sin(t * 2.3));
+    default: return 0.12 + 0.08 * Math.sin(t * 14);
+  }
+}
+function frame(ms) {
+  const t = reduceMotion ? 0 : ms / 1000;
+  level *= 0.93; // decay the voice bump
+  amp += ((reduceMotion ? 0.05 : target(t)) - amp) * 0.1;
+  g.setTransform(DPR, 0, 0, DPR, 0, 0);
+  g.clearRect(0, 0, W, H);
+  const cx = W / 2, cy = H / 2, r = Math.min(W, H) * 0.26;
+  const [a, b] = PAL[state];
+
+  // halo
+  const hr = r * (2.2 + amp * 0.9);
+  let gr = g.createRadialGradient(cx, cy, 0, cx, cy, hr);
+  gr.addColorStop(0, hexA(b, 0.40)); gr.addColorStop(0.5, hexA(a, 0.16)); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.beginPath(); g.arc(cx, cy, hr, 0, 6.2832); g.fill();
+
+  // rings
+  const spin = state === 'thinking' ? 2.4 : 0.5;
+  for (let i = 0; i < 3; i++) {
+    const rr = r * (1.38 + i * 0.22), dir = i % 2 ? -1 : 1;
+    g.lineWidth = 1.4;
+    if (g.createConicGradient) {
+      const cg = g.createConicGradient(t * spin * dir + i, cx, cy);
+      cg.addColorStop(0, 'rgba(0,0,0,0)'); cg.addColorStop(0.35, a); cg.addColorStop(0.6, b); cg.addColorStop(1, 'rgba(0,0,0,0)');
+      g.strokeStyle = cg;
+    } else g.strokeStyle = hexA(b, 0.35);
+    g.globalAlpha = 0.9 - i * 0.2;
+    g.beginPath(); g.arc(cx, cy, rr, 0, 6.2832); g.stroke();
+    g.globalAlpha = 1;
+  }
+
+  // particles
+  if (state === 'thinking' || state === 'speaking') {
+    const n = state === 'thinking' ? 16 : 8;
+    for (let k = 0; k < n; k++) {
+      const ang = t * (1.1 + k * 0.06) + k * 0.9, rad = r * (1.55 + 0.28 * Math.sin(k + t * 1.5));
+      const px = cx + Math.cos(ang) * rad, py = cy + Math.sin(ang) * rad;
+      g.fillStyle = hexA(b, 0.55); g.beginPath(); g.arc(px, py, 5, 0, 6.2832); g.fill();
+      g.fillStyle = 'rgba(246,234,255,.9)'; g.beginPath(); g.arc(px, py, 1.7, 0, 6.2832); g.fill();
+    }
+  }
+
+  // liquid core
+  g.beginPath();
+  const steps = 140;
+  for (let i = 0; i <= steps; i++) {
+    const ang = i / steps * 6.2832;
+    const n = Math.sin(ang * 3 + t * 1.4) * 0.5 + Math.sin(ang * 5 - t * 2.1) * 0.3 + Math.sin(ang * 2 + t * 0.8) * 0.2;
+    const rad = r * (1 + 0.02 * Math.sin(t * 2) + amp * 0.45 * n);
+    const x = cx + Math.cos(ang) * rad, y = cy + Math.sin(ang) * rad;
+    i ? g.lineTo(x, y) : g.moveTo(x, y);
+  }
+  g.closePath();
+  g.save(); g.shadowColor = b; g.shadowBlur = 24; g.lineWidth = 3; g.strokeStyle = hexA(b, 0.9); g.stroke(); g.restore();
+  gr = g.createRadialGradient(cx - r * 0.3, cy - r * 0.38, 0, cx - r * 0.3, cy - r * 0.38, r * 1.35);
+  gr.addColorStop(0, 'rgba(246,234,255,.95)'); gr.addColorStop(0.26, b); gr.addColorStop(0.68, a); gr.addColorStop(1, '#140a2b');
+  g.fillStyle = gr; g.fill();
+
+  // highlight
+  g.fillStyle = 'rgba(255,255,255,.3)'; g.beginPath();
+  g.ellipse(cx - r * 0.32, cy - r * 0.42, r * 0.25, r * 0.13, -0.5, 0, 6.2832); g.fill();
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ---------------- Boot ---------------- */
+(async function boot() {
+  try {
+    const r = await fetch('luna_config.json', { cache: 'no-store' });
+    if (r.ok) cfg = Object.assign(cfg, await r.json());
+  } catch (e) {}
+  loadSkills();
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  if (!localStorage.getItem('luna_key')) showHeard('Tap the settings icon to add your Gemini key');
+})();
+</script>
+</body>
+</html>
